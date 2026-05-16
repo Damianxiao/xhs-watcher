@@ -194,9 +194,9 @@ notify:
 {
   "scraped_at": "2026-05-16T14:00:00+08:00",
   "keyword": "claude code",
-  "window_hours": 12,
   "stats": {
-    "total_in_window": 23,
+    "window_hours": 12,
+    "total": 23,
     "new": 7,
     "already_seen": 16
   },
