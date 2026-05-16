@@ -1,0 +1,10 @@
+state/*
+!state/.gitkeep
+.env
+.env.local
+*.local.yml
+node_modules/
+.DS_Store
+/tmp/
+playwright-report/
+test-results/
