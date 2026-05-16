@@ -1,19 +1,69 @@
+# xhs-watcher default config: monitor "claude code" on Xiaohongshu for
+# information-asymmetry signals.
+
 source:
   platform: xiaohongshu
   search_url: "https://www.xiaohongshu.com/search_result?keyword={keyword}&sort=time"
   keyword: "claude code"
+
 window:
   hours: 12
   max_posts_per_run: 100
+
 scrape:
   card_delay_ms: [800, 2500]
   detail_wait_ms: 1000
+  user_agent: ""
+
+signal:
+  brief: |
+    目标读者：已经把 Claude Code 当主力工具的 power user
+    （熟悉 hooks / skills / subagents / MCP / settings.json / CLAUDE.md / superpowers 等）。
+    判断标准：这条帖子能否告诉这个读者他不知道的东西？
+
+  verdicts:
+    signal:
+      label: "🟢 信号"
+      examples:
+        - 新 feature 的非官方玩法
+        - 隐藏行为 / undocumented behavior
+        - 新 hook / skill / MCP / subagent 配方
+        - Anthropic 刚出更新的具体应用
+        - 跨工具集成新姿势
+    maybe:
+      label: "🟡 存疑"
+      hint: "看起来像信号但缺细节，让用户自己判断"
+    known:
+      label: "🔘 已知"
+      examples:
+        - prompt engineering 老生常谈
+        - superpowers / git worktree / TDD 等已知话题且无新角度
+    ad:
+      label: "📢 广告"
+      examples:
+        - 训练营 / 付费课
+        - '"AI 替代程序员" 情绪文'
+    noise:
+      label: "🗑 无干货"
+      examples:
+        - 纯感叹
+        - '"todo app" 炫耀'
+        - 和 Cursor/Copilot 的泛对比
+
+output:
+  language: zh-CN
+  card_fields: [workflow_name, one_liner, key_steps, applicable, verdict_reason]
+
 notify:
   terminal:
     enabled: true
+    show_filtered_details: true
   telegram:
     enabled: true
     bot_token_env: XHS_WATCHER_TG_BOT_TOKEN
     chat_id_env: XHS_WATCHER_TG_CHAT_ID
     parse_mode: HTML
+    max_chars_per_message: 4000
+    one_message_per_signal: true
+    include_filtered: false
     on_failure: warn

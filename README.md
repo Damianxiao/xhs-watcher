@@ -1,57 +1,98 @@
 # xhs-watcher
 
-> 通用 Xiaohongshu (小红书) 关键词监视器。每 N 小时扫一遍指定关键词的新帖，用 LLM 按"信息差"标准过滤，把信号同步播报到终端 + Telegram。
+Periodic Xiaohongshu (小红书) keyword watcher. Filters info-asymmetry signals via LLM (Claude Code `/loop`) and broadcasts to terminal + Telegram every 6 hours.
 
-**默认配置**：监视 `claude code` 关键词，过滤出对 Claude Code power user 有价值的新工作流 / 隐藏玩法 / 新 hook & skill & MCP 配方。
+Default config monitors `claude code` — surfaces new workflows, hidden behaviors, fresh hook/skill/MCP/subagent recipes that a Claude Code power user hasn't seen yet.
 
-详细设计见 [`DESIGN.md`](./DESIGN.md)。实现计划见 `IMPLEMENTATION_PLAN.md`（由 `superpowers:writing-plans` 生成）。
-
----
-
-## 状态
-
-🚧 设计阶段已完成，实现尚未开始。
+See [`DESIGN.md`](./DESIGN.md) for full spec.
 
 ---
 
-## 概览
+## Install
 
-```
-scrape.mjs (Playwright) ─► /loop LLM 判定 verdict ─► notify.mjs (终端 + Telegram)
-        │                                                    ▲
-        ▼                                                    │
-   state/seen.json ◄──────────────────────────────────────────
-```
-
-- **scrape.mjs**：登录态从 `state/storage.json` 加载，按时间窗口（默认 12h）抓取新帖。
-- **/loop LLM**：每 6h 自动跑一轮，按 `watcher.yml` 中的信号定义判定 verdict。
-- **notify.mjs**：终端 Markdown + Telegram HTML 双路输出。
-
-## 安装（待实现完成后）
+Requires Node ≥ 20.
 
 ```sh
 git clone https://github.com/<you>/xhs-watcher
 cd xhs-watcher
 npm install
 npx playwright install chromium
+```
 
+## Configure
+
+```sh
 cp .env.example .env
-# 编辑 .env 填入 TG bot token + chat id
+$EDITOR .env    # fill in XHS_WATCHER_TG_BOT_TOKEN and XHS_WATCHER_TG_CHAT_ID
+```
 
+To monitor a different keyword, edit `watcher.yml`. See `watcher.example.yml` for a non-default example.
+
+## First-time login
+
+```sh
 node login.mjs
-# 浏览器弹出 → 扫码登录 XHS → 回终端按 Enter
+# Chromium opens → scan QR / log in → press Enter in terminal
+# state/storage.json is written (gitignored)
 ```
 
-启动 `/loop`（在 Claude Code 中）：
-```
-/loop 6h <粘贴 LOOP_PROMPT.md 内容>
+## Run manually
+
+```sh
+node scrape.mjs > /tmp/scrape.json    # one-shot scrape
+cat /tmp/scrape.json                  # inspect raw JSON
 ```
 
-## 安全提示
+## Run on schedule (Claude Code)
 
-- **绝不**把 `state/storage.json`、`.env`、bot token 提交到 git
-- bot token 一旦泄露，立即去 [@BotFather](https://t.me/BotFather) `/revoke`
-- `state/storage.json` 等同 XHS 登录态，泄露相当于账号被盗
+```
+/loop 6h <paste LOOP_PROMPT.md body>
+```
+
+The LLM applies the signal filter and dispatches to both terminal and Telegram.
+
+## Switch to a different keyword
+
+Edit `watcher.yml`:
+
+```yaml
+source:
+  keyword: "comfyui workflow"
+```
+
+Update `signal.brief` and `signal.verdicts.*.examples` to define what counts as a signal for that topic. Restart the loop.
+
+## Security
+
+- **NEVER commit** `state/storage.json` — equivalent to your XHS login
+- **NEVER commit** `.env` — contains TG bot token
+- If a bot token leaks, run `/revoke` in [@BotFather](https://t.me/BotFather) immediately
+
+## Layout
+
+```
+scrape.mjs        Playwright scraper, JSON to stdout
+login.mjs         One-shot interactive login
+notify.mjs        Reads broadcast JSON from stdin → terminal + TG
+watcher.yml       Config: keyword, window, signal definition, notify channels
+LOOP_PROMPT.md    Body to paste into /loop
+lib/
+  time-parser.mjs  XHS relative time → ISO
+  seen.mjs         Dedup state with GC
+  config.mjs       Loads watcher.yml + .env
+  lock.mjs         PID-based single-run guard
+  selectors.mjs    XHS DOM selectors (patch here when site changes)
+  tg.mjs           Telegram API client
+  render.mjs       Terminal Markdown + TG HTML renderers
+tests/             Unit tests (node:test)
+state/             Runtime state (gitignored)
+```
+
+## Tests
+
+```sh
+npm test
+```
 
 ## License
 

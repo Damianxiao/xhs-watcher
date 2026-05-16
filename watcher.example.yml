@@ -1,0 +1,35 @@
+# Example: monitor ComfyUI workflow tips instead of Claude Code.
+# Copy this to watcher.yml to use it.
+
+source:
+  platform: xiaohongshu
+  search_url: "https://www.xiaohongshu.com/search_result?keyword={keyword}&sort=time"
+  keyword: "comfyui 工作流"
+
+window: { hours: 12, max_posts_per_run: 100 }
+scrape: { card_delay_ms: [800, 2500], detail_wait_ms: 1000 }
+
+signal:
+  brief: |
+    目标读者：熟练使用 ComfyUI、了解 SD/SDXL/Flux 主流节点和常见工作流的进阶用户。
+    判断标准：这条帖子是否介绍了新的节点组合、参数发现、或解决了某个常见痛点？
+
+  verdicts:
+    signal: { label: "🟢 信号", examples: ["新 custom node 用法", "采样器参数发现", "新颖节点组合"] }
+    maybe: { label: "🟡 存疑", hint: "看起来有用但缺工作流截图" }
+    known: { label: "🔘 已知", examples: ["controlnet 教程", "lora 入门"] }
+    ad: { label: "📢 广告", examples: ["卖课", "AI 绘画训练营"] }
+    noise: { label: "🗑 无干货", examples: ["纯出图炫耀", "模型对比无方法"] }
+
+output:
+  language: zh-CN
+  card_fields: [workflow_name, one_liner, key_steps, applicable, verdict_reason]
+
+notify:
+  terminal: { enabled: true, show_filtered_details: true }
+  telegram:
+    enabled: true
+    bot_token_env: XHS_WATCHER_TG_BOT_TOKEN
+    chat_id_env: XHS_WATCHER_TG_CHAT_ID
+    parse_mode: HTML
+    on_failure: warn
