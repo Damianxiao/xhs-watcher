@@ -1,0 +1,30 @@
+{
+  "broadcast_at": "2026-05-16T14:00:00+08:00",
+  "stats": {
+    "window_hours": 12,
+    "total": 4,
+    "new": 4,
+    "already_seen": 0,
+    "by_verdict": { "signal": 1, "maybe": 0, "known": 1, "ad": 1, "noise": 1 }
+  },
+  "cards": [
+    {
+      "note_id": "abc",
+      "verdict": "signal",
+      "workflow_name": "Skill 化 git worktree",
+      "one_liner": "用 PostToolUse hook 自动注入 CLAUDE.md。",
+      "key_steps": ["监听 git worktree add", "模板渲染 CLAUDE.md"],
+      "applicable": "并行多 agent",
+      "verdict_reason": "比 superpowers 多一层上下文",
+      "author": "@somebody",
+      "published_relative": "4小时前",
+      "metrics": { "likes": 234, "collects": 89 },
+      "url": "https://www.xiaohongshu.com/explore/abc"
+    }
+  ],
+  "filtered_summary": [
+    { "note_id": "k1", "verdict": "known", "title": "又一篇 TDD 入门", "url": "https://x/k1", "author": "@x", "published_relative": "4h" },
+    { "note_id": "a1", "verdict": "ad", "title": "三天精通 Claude Code", "url": "https://x/a1", "author": "@y", "published_relative": "3h" },
+    { "note_id": "n1", "verdict": "noise", "title": "我用 Claude Code 写了 todo app", "url": "https://x/n1", "author": "@z", "published_relative": "6h" }
+  ]
+}
