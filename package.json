@@ -1,0 +1,22 @@
+{
+  "name": "xhs-watcher",
+  "version": "0.1.0",
+  "description": "Periodic Xiaohongshu keyword watcher that filters info-asymmetry signals via LLM and broadcasts to terminal + Telegram.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "node --test tests/",
+    "test:watch": "node --test --watch tests/",
+    "scrape": "node scrape.mjs",
+    "notify": "node notify.mjs",
+    "login": "node login.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "js-yaml": "^4.1.0",
+    "playwright": "^1.45.0"
+  }
+}
