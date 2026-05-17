@@ -133,7 +133,14 @@ async function main() {
       }
 
       const title = (await card.locator(XHS.cardTitle).first().textContent().catch(() => ''))?.trim() ?? '';
-      const author = (await card.locator(XHS.cardAuthor).first().textContent().catch(() => ''))?.trim() ?? '';
+      const authorRaw = (await card.locator(XHS.cardAuthor).first().textContent().catch(() => ''))?.trim() ?? '';
+      // a.author text contains "<name>\n<relative time>" or "<name><relative time>".
+      // Strip the trailing time suffix to get just the display name.
+      const author = authorRaw
+        .replace(/[\s\n]*\d+\s*(?:秒|分钟|小时|天|周|个月|年)前\s*$/, '')
+        .replace(/[\s\n]*(?:刚刚|今天|昨天)(?:\s+\d{1,2}:\d{2})?\s*$/, '')
+        .trim();
+      const cardLikes = (await card.locator(XHS.cardLikes).first().textContent().catch(() => ''))?.trim();
       const url = href.startsWith('http') ? href : `https://www.xiaohongshu.com${href}`;
 
       const detailPage = await context.newPage();
@@ -155,6 +162,11 @@ async function main() {
         await detailPage.close();
       }
 
+      // Prefer detail-page metrics; fall back to the like count visible on
+      // the search card when the detail-page selectors miss.
+      const metrics = { ...detail.metrics };
+      if (!metrics.likes && cardLikes) metrics.likes = cardLikes;
+
       posts.push({
         note_id: noteId,
         url,
@@ -164,7 +176,7 @@ async function main() {
         published_relative: relTime,
         content: detail.content,
         tags: detail.tags,
-        metrics: detail.metrics,
+        metrics,
         image_count: detail.image_count,
       });
       seen.markSeen(noteId, { title, firstSeen: scrapedAt });

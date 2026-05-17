@@ -14,6 +14,16 @@ test('parses "X小时前" (no space)', () => {
   assert.equal(result.toISOString(), new Date('2026-05-16T10:00:00+08:00').toISOString());
 });
 
+test('parses "X天前"', () => {
+  const result = parseXhsRelativeTime('5天前', NOW);
+  assert.equal(result.toISOString(), new Date('2026-05-11T14:00:00+08:00').toISOString());
+});
+
+test('parses "X周前"', () => {
+  const result = parseXhsRelativeTime('2周前', NOW);
+  assert.equal(result.toISOString(), new Date('2026-05-02T14:00:00+08:00').toISOString());
+});
+
 test('parses "今天 HH:MM"', () => {
   const result = parseXhsRelativeTime('今天 09:15', NOW);
   assert.equal(result.toISOString(), new Date('2026-05-16T09:15:00+08:00').toISOString());
