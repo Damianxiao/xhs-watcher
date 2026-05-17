@@ -4,7 +4,9 @@
 source:
   platform: xiaohongshu
   search_url: "https://www.xiaohongshu.com/search_result?keyword={keyword}&sort=time"
-  keyword: "comfyui 工作流"
+  keywords:
+    - "comfyui 工作流"
+    - "ComfyUI workflow"
 
 window: { hours: 12, max_posts_per_run: 100 }
 scrape: { card_delay_ms: [800, 2500], detail_wait_ms: 1000 }

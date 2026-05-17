@@ -1,0 +1,21 @@
+source:
+  platform: xiaohongshu
+  search_url: "https://example.com/search?q={keyword}"
+  keywords:
+    - "Claude Code"
+    - "claude code"
+    - "claudecode"
+
+window:
+  hours: 12
+  max_posts_per_run: 100
+
+scrape:
+  card_delay_ms: [800, 2500]
+  detail_wait_ms: 1000
+
+notify:
+  telegram:
+    enabled: true
+    bot_token_env: TEST_TG_TOKEN
+    chat_id_env: TEST_TG_CHAT

@@ -4,7 +4,13 @@
 source:
   platform: xiaohongshu
   search_url: "https://www.xiaohongshu.com/search_result?keyword={keyword}&sort=time"
-  keyword: "claude code"
+  # XHS treats casing / spacing as distinct queries — each variant surfaces
+  # different posts (verified 2026-05-17). Scrape runs each in sequence and
+  # dedups by note_id.
+  keywords:
+    - "Claude Code"
+    - "claude code"
+    - "claudecode"
 
 window:
   hours: 24
