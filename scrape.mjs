@@ -11,6 +11,17 @@ const STORAGE_PATH = 'state/storage.json';
 const SEEN_PATH = 'state/seen.json';
 const LOCK_PATH = 'state/.lock';
 
+let lockAcquired = false;
+
+process.on('SIGINT', () => {
+  if (lockAcquired) releaseLock(LOCK_PATH);
+  process.exit(130);
+});
+process.on('SIGTERM', () => {
+  if (lockAcquired) releaseLock(LOCK_PATH);
+  process.exit(143);
+});
+
 function emit(payload) {
   console.log(JSON.stringify(payload, null, 2));
 }
@@ -44,6 +55,7 @@ async function main() {
   if (!lock.acquired) {
     exit({ error: 'already_running', message: `lock held by PID ${lock.holder?.pid}` }, 6);
   }
+  lockAcquired = true;
 
   const seen = Seen.load(SEEN_PATH);
   const scrapedAt = new Date();
@@ -81,7 +93,7 @@ async function main() {
       const card = cards.nth(i);
       const href = await card.locator(XHS.cardLink).first().getAttribute('href').catch(() => null);
       if (!href) continue;
-      const noteId = (href.match(/\/(explore|search_result)\/([\w-]+)/) || [])[2];
+      const noteId = (href.match(/\/(?:explore|discovery\/item)\/([\w-]+)/) || [])[1];
       if (!noteId) continue;
 
       const relTime = (await card.locator(XHS.cardRelativeTime).first().textContent().catch(() => ''))?.trim();
@@ -163,7 +175,7 @@ async function main() {
     exitCode = err.exit ?? 5;
   } finally {
     await browser.close();
-    releaseLock(LOCK_PATH);
+    if (lockAcquired) { releaseLock(LOCK_PATH); lockAcquired = false; }
   }
 
   emit(payload);
@@ -171,7 +183,7 @@ async function main() {
 }
 
 main().catch((err) => {
-  releaseLock(LOCK_PATH);
+  if (lockAcquired) { releaseLock(LOCK_PATH); lockAcquired = false; }
   emit({ error: 'network', message: err.message });
   process.exit(5);
 });

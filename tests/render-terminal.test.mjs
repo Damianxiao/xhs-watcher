@@ -43,3 +43,9 @@ test('renderTerminal renders error broadcast', () => {
   assert.match(out, /⚠️/);
   assert.match(out, /login_expired/);
 });
+
+test('renderTerminal renders CST timestamp regardless of host tz', () => {
+  // The fixture's broadcast_at is 2026-05-16T14:00:00+08:00
+  const out = renderTerminal(fixture);
+  assert.match(out, /2026-05-16 14:00 CST/);
+});

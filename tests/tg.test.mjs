@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sendMessage } from '../lib/tg.mjs';
+import { sendMessage, sendAll } from '../lib/tg.mjs';
 
 test('sends POST to Telegram sendMessage endpoint with correct body', async () => {
   let captured = null;
@@ -46,4 +46,20 @@ test('returns ok:false on network exception', async () => {
   );
   assert.equal(result.ok, false);
   assert.match(result.error, /ENOTFOUND/);
+});
+
+test('sendAll retries once after first failure', async () => {
+  const calls = [];
+  const mockFetch = async () => {
+    calls.push(1);
+    if (calls.length === 1) return { ok: false, status: 500, json: async () => ({ ok: false, description: 'transient' }) };
+    return { ok: true, status: 200, json: async () => ({ ok: true, result: { message_id: 99 } }) };
+  };
+  const results = await sendAll(['hi'], { botToken: 'T', chatId: '@x', parseMode: 'HTML' }, {
+    fetch: mockFetch,
+    sleepMs: 0,
+    sleep: () => Promise.resolve(),
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(results[0].ok, true);
 });
