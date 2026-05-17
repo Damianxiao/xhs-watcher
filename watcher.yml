@@ -7,7 +7,7 @@ source:
   keyword: "claude code"
 
 window:
-  hours: 12
+  hours: 24
   max_posts_per_run: 100
 
 scrape:
