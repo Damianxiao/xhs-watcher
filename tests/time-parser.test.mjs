@@ -24,6 +24,11 @@ test('parses "X周前"', () => {
   assert.equal(result.toISOString(), new Date('2026-05-02T14:00:00+08:00').toISOString());
 });
 
+test('parses "MM-DD" using CST year of now', () => {
+  const result = parseXhsRelativeTime('04-11', NOW);
+  assert.equal(result.toISOString(), new Date('2026-04-11T00:00:00+08:00').toISOString());
+});
+
 test('parses "今天 HH:MM"', () => {
   const result = parseXhsRelativeTime('今天 09:15', NOW);
   assert.equal(result.toISOString(), new Date('2026-05-16T09:15:00+08:00').toISOString());

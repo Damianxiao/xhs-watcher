@@ -72,23 +72,32 @@ async function main() {
       throw Object.assign(new Error('login expired'), { code: 'login_expired', exit: 2 });
     }
 
+    // Wait for either feed or login wall to appear. XHS sometimes briefly
+    // flashes the login modal during initial render for logged-in users —
+    // if we see 'login' first, give the page another 3s and re-check; only
+    // declare login_expired if the wall is still there and feed isn't.
+    const detectState = (sel) => ({ ...sel });
+    const waitArgs = {
+      feedSel: XHS.feedContainer,
+      overlaySel: XHS.loginIndicators.loginRequiredOverlay,
+      loginText: XHS.loginIndicators.loginRequiredText,
+    };
+    const evalState = (s) => {
+      if (document.querySelector(s.feedSel)) return 'feed';
+      if (document.querySelector(s.overlaySel)) return 'login';
+      if (document.body && document.body.innerText.includes(s.loginText)) return 'login';
+      return false;
+    };
     const settledHandle = await page
-      .waitForFunction(
-        ({ feedSel, overlaySel, loginText }) => {
-          if (document.querySelector(feedSel)) return 'feed';
-          if (document.querySelector(overlaySel)) return 'login';
-          if (document.body && document.body.innerText.includes(loginText)) return 'login';
-          return false;
-        },
-        {
-          feedSel: XHS.feedContainer,
-          overlaySel: XHS.loginIndicators.loginRequiredOverlay,
-          loginText: XHS.loginIndicators.loginRequiredText,
-        },
-        { timeout: 15_000 },
-      )
+      .waitForFunction(evalState, waitArgs, { timeout: 15_000 })
       .catch(() => null);
-    const settled = settledHandle ? await settledHandle.jsonValue() : null;
+    let settled = settledHandle ? await settledHandle.jsonValue() : null;
+
+    if (settled === 'login') {
+      // Recheck after a short wait — login modal may have been a flash.
+      await page.waitForTimeout(3000);
+      settled = await page.evaluate(evalState, waitArgs);
+    }
 
     if (settled === 'login') {
       throw Object.assign(new Error('login expired'), { code: 'login_expired', exit: 2 });
@@ -124,7 +133,11 @@ async function main() {
       } catch {
         continue;
       }
-      if (scrapedAt.getTime() - publishedAt.getTime() > windowMs) break;
+      // NOTE: XHS search results are NOT strictly time-sorted even with
+      // sort=time — verified 2026-05-17, top of feed was 4天前 / 3天前 /
+      // 1天前 / 2天前. So we cannot `break` on first-out-of-window; we must
+      // scan the full feed (capped at max_posts_per_run).
+      if (scrapedAt.getTime() - publishedAt.getTime() > windowMs) continue;
       totalInWindow++;
 
       if (seen.has(noteId)) {
