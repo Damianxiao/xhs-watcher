@@ -26,7 +26,6 @@ output:
   card_fields: [workflow_name, one_liner, key_steps, applicable, verdict_reason]
 
 notify:
-  terminal: { enabled: true, show_filtered_details: true }
   telegram:
     enabled: true
     bot_token_env: XHS_WATCHER_TG_BOT_TOKEN

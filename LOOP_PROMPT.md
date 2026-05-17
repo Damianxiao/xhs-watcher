@@ -9,11 +9,10 @@ Paste this content as the body of a `/loop 6h <body>` invocation inside Claude C
 1. **Bash**: `cd ~/xhs-watcher && node scrape.mjs > /tmp/xhs-scrape.json; echo "EXIT=$?"`
 2. **Read** `/tmp/xhs-scrape.json`. Branch on `error`:
    - `login_expired` → run step 5 with a broadcast object `{ "error": "login_expired", "message": "请运行 cd ~/xhs-watcher && node login.mjs 重新登录" }` and stop.
-   - `cf_challenge` → broadcast `{ "error": "cf_challenge", "message": "风控触发，等下一轮自动重试" }` and stop.
    - `selector_missing` → broadcast `{ "error": "selector_missing", "message": "XHS DOM 变了，需要修 lib/selectors.mjs" }` and stop.
    - `network` → broadcast `{ "error": "network", "message": "<原 message>" }` and stop.
    - `already_running` → silently exit (no broadcast).
-   - `null` + `stats.new == 0` → broadcast `{ "scraped_at": ..., "stats": {...}, "cards": [], "filtered_summary": [] }` so the renderer says "窗口无新帖" and stop.
+   - `null` + `stats.new == 0` → broadcast `{ "scraped_at": ..., "broadcast_at": "<ISO timestamp>", "stats": {...}, "cards": [], "filtered_summary": [] }` so the renderer says "窗口无新帖" and stop.
    - `null` + `stats.new > 0` → continue to step 3.
 
 3. For each `post` in `scrape.posts`, determine `verdict ∈ {signal, maybe, known, ad, noise}` per the `signal.brief` and `signal.verdicts.*.examples` from `watcher.yml`. Be strict: target reader already knows superpowers / hooks / TDD / worktree basics.
