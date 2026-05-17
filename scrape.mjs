@@ -69,40 +69,46 @@ async function main() {
     let totalInWindowAcc = 0;
     let alreadySeenAcc = 0;
 
-    for (const kw of cfg.source.keywordList) {
-      const url = cfg.source.search_url.replace('{keyword}', encodeURIComponent(kw));
+    const waitArgs = {
+      feedSel: XHS.feedContainer,
+      overlaySel: XHS.loginIndicators.loginRequiredOverlay,
+      loginText: XHS.loginIndicators.loginRequiredText,
+    };
+    const evalState = (s) => {
+      if (document.querySelector(s.feedSel)) return 'feed';
+      if (document.querySelector(s.overlaySel)) return 'login';
+      if (document.body && document.body.innerText.includes(s.loginText)) return 'login';
+      return false;
+    };
+
+    // Navigate to a keyword URL and wait for the page to settle into either
+    // `feed` or `login`. Returns the resolved state. Caller decides what to do.
+    async function navAndSettle(url) {
       await page.goto(url, { waitUntil: 'domcontentloaded' });
-
-      // XHS is an SPA — wait for the page to settle into ONE of:
-      //   (a) the feed container is present (logged in, results rendered)
-      //   (b) the login wall is present (anonymous / expired cookie)
-      // The login wall flashes briefly then the DOM mutates, so we must act on
-      // whichever state appears first and not re-check later. URL-based detection
-      // still runs as a precaution.
-      if (page.url().includes(XHS.loginIndicators.redirectHostname)) {
-        throw Object.assign(new Error('login expired'), { code: 'login_expired', exit: 2 });
-      }
-
-      const waitArgs = {
-        feedSel: XHS.feedContainer,
-        overlaySel: XHS.loginIndicators.loginRequiredOverlay,
-        loginText: XHS.loginIndicators.loginRequiredText,
-      };
-      const evalState = (s) => {
-        if (document.querySelector(s.feedSel)) return 'feed';
-        if (document.querySelector(s.overlaySel)) return 'login';
-        if (document.body && document.body.innerText.includes(s.loginText)) return 'login';
-        return false;
-      };
-      const settledHandle = await page
+      if (page.url().includes(XHS.loginIndicators.redirectHostname)) return 'login';
+      const handle = await page
         .waitForFunction(evalState, waitArgs, { timeout: 15_000 })
         .catch(() => null);
-      let settled = settledHandle ? await settledHandle.jsonValue() : null;
-
-      if (settled === 'login') {
-        // Recheck after a short wait — login modal may have been a flash.
+      let state = handle ? await handle.jsonValue() : null;
+      if (state === 'login') {
+        // Login modal sometimes flashes during initial render — recheck after a
+        // short wait before declaring the session dead.
         await page.waitForTimeout(3000);
-        settled = await page.evaluate(evalState, waitArgs);
+        state = await page.evaluate(evalState, waitArgs);
+      }
+      return state;
+    }
+
+    for (const kw of cfg.source.keywordList) {
+      const url = cfg.source.search_url.replace('{keyword}', encodeURIComponent(kw));
+      let settled = await navAndSettle(url);
+
+      // XHS occasionally serves a stripped page that has neither the feed
+      // container nor the login wall (probably risk-control). Single retry
+      // after a short wait clears the vast majority of cases.
+      if (settled !== 'feed' && settled !== 'login') {
+        await page.waitForTimeout(5000);
+        settled = await navAndSettle(url);
       }
 
       if (settled === 'login') {

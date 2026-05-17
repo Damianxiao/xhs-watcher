@@ -49,14 +49,20 @@ async function main() {
   }
 
   if (flags.tg && cfg.notify?.telegram?.enabled) {
-    // Skip TG broadcast when stats.new is 0 and notify_on_empty is false
-    // (or unset). Avoids spamming the channel with "窗口无新帖" every iteration
-    // in steady state. Error broadcasts (broadcast.error truthy) always go
-    // through so the user knows about login_expired / network / etc.
-    const isEmpty = !broadcast.error && broadcast.stats?.new === 0;
+    // Skip TG broadcast in two "nothing actionable" cases — keeps the channel
+    // free of recurring footer-only messages once the system reaches steady
+    // state. Error broadcasts (broadcast.error truthy) always go through so
+    // the user knows about login_expired / network / etc.
+    //
+    //   (a) stats.new === 0 — scrape returned no new posts at all
+    //   (b) cards.length === 0 — new posts existed but ALL classified as
+    //       known/ad/noise, so there's nothing actionable to push
+    const cardCount = (broadcast.cards ?? []).length;
+    const isNothingActionable = !broadcast.error &&
+      (broadcast.stats?.new === 0 || cardCount === 0);
     const notifyOnEmpty = cfg.notify.telegram.notify_on_empty ?? false;
-    if (isEmpty && !notifyOnEmpty) {
-      // intentional no-op for TG; terminal already rendered the empty status
+    if (isNothingActionable && !notifyOnEmpty) {
+      // intentional no-op for TG; terminal already rendered the broadcast
     } else {
     const msgs = renderTelegramMessages(broadcast);
     if (flags.dryRun) {
