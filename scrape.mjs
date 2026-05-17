@@ -128,7 +128,9 @@ async function main() {
         const card = cards.nth(i);
         const href = await card.locator(XHS.cardLink).first().getAttribute('href').catch(() => null);
         if (!href) continue;
-        const noteId = (href.match(/\/(?:explore|discovery\/item)\/([\w-]+)/) || [])[1];
+        // Tokenized URL: /search_result/<id>?xsec_token=... — used for navigation.
+        // Also accept /explore/<id> and /discovery/item/<id> defensively.
+        const noteId = (href.match(/\/(?:search_result|explore|discovery\/item)\/([\w-]+)/) || [])[1];
         if (!noteId) continue;
 
         const relTime = (await card.locator(XHS.cardRelativeTime).first().textContent().catch(() => ''))?.trim();
@@ -162,20 +164,33 @@ async function main() {
           .replace(/[\s\n]*(?:刚刚|今天|昨天)(?:\s+\d{1,2}:\d{2})?\s*$/, '')
           .trim();
         const cardLikes = (await card.locator(XHS.cardLikes).first().textContent().catch(() => ''))?.trim();
-        const postUrl = href.startsWith('http') ? href : `https://www.xiaohongshu.com${href}`;
+        // Build navigation URL: prepend host if relative. Also produce a clean
+        // user-facing /explore/<id>?xsec_token=... form for display + TG link
+        // (XHS auto-redirects /search_result/ → /explore/ during nav anyway).
+        const rawHref = href.startsWith('http') ? href : `https://www.xiaohongshu.com${href}`;
+        const tokenMatch = rawHref.match(/[?&](xsec_token=[^&]+)/);
+        const xsecToken = tokenMatch ? tokenMatch[1] : '';
+        const postUrl = xsecToken
+          ? `https://www.xiaohongshu.com/explore/${noteId}?${xsecToken}`
+          : rawHref;
 
         const detailPage = await context.newPage();
         let detail = { content: '', tags: [], metrics: {}, image_count: 0 };
         try {
-          await detailPage.goto(postUrl, { waitUntil: 'domcontentloaded' });
-          await detailPage.waitForTimeout(cfg.scrape.detail_wait_ms);
+          await detailPage.goto(rawHref, { waitUntil: 'domcontentloaded' });
+          // Wait for the content container; bail after detail_wait_ms if it
+          // never appears (some posts may be restricted / deleted).
+          await detailPage.locator(XHS.detailContent).first().waitFor({ timeout: cfg.scrape.detail_wait_ms + 3000 }).catch(() => {});
           detail.content = (await detailPage.locator(XHS.detailContent).first().textContent().catch(() => ''))?.trim() ?? '';
           const tagEls = detailPage.locator(XHS.detailTags);
           const tagCount = await tagEls.count();
-          for (let t = 0; t < tagCount; t++) detail.tags.push((await tagEls.nth(t).textContent()).trim());
-          detail.metrics.likes = await detailPage.locator(XHS.detailMetrics.likes).first().textContent().catch(() => null);
-          detail.metrics.collects = await detailPage.locator(XHS.detailMetrics.collects).first().textContent().catch(() => null);
-          detail.metrics.comments = await detailPage.locator(XHS.detailMetrics.comments).first().textContent().catch(() => null);
+          for (let t = 0; t < tagCount; t++) {
+            const tagText = (await tagEls.nth(t).textContent().catch(() => '')).trim();
+            if (tagText) detail.tags.push(tagText.replace(/^#/, ''));
+          }
+          detail.metrics.likes = (await detailPage.locator(XHS.detailMetrics.likes).first().textContent().catch(() => null))?.trim() || null;
+          detail.metrics.collects = (await detailPage.locator(XHS.detailMetrics.collects).first().textContent().catch(() => null))?.trim() || null;
+          detail.metrics.comments = (await detailPage.locator(XHS.detailMetrics.comments).first().textContent().catch(() => null))?.trim() || null;
           detail.image_count = await detailPage.locator(XHS.detailImages).count();
         } catch {
           // tolerate failures on detail page; keep partial info

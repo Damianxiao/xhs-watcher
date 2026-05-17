@@ -90,11 +90,14 @@ async function main() {
     .map((r) => ({
       note_id: r.post.note_id,
       verdict: r.verdict,
+      title: r.post.title,
       workflow_name: r.workflow_name,
       one_liner: r.one_liner,
       key_steps: r.key_steps,
       applicable: r.applicable,
       verdict_reason: r.verdict_reason,
+      original_content: r.post.content ?? '',
+      tags: Array.isArray(r.post.tags) ? r.post.tags : [],
       author: '@' + (r.post.author?.name ?? 'unknown'),
       published_relative: r.post.published_relative,
       metrics: {
