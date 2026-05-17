@@ -35,12 +35,6 @@ function randomBetween([lo, hi]) {
   return lo + Math.floor(Math.random() * (hi - lo));
 }
 
-async function detectLoginExpired(page) {
-  if (page.url().includes(XHS.loginIndicators.redirectHostname)) return true;
-  const overlay = await page.locator(XHS.loginIndicators.loginRequiredOverlay).count();
-  return overlay > 0;
-}
-
 async function main() {
   const cfg = loadConfig();
 
@@ -67,19 +61,46 @@ async function main() {
     const context = await browser.newContext({ storageState: STORAGE_PATH });
     const page = await context.newPage();
     await page.goto(cfg.source.resolvedUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
 
-    if (await detectLoginExpired(page)) {
+    // XHS is an SPA — wait for the page to settle into ONE of:
+    //   (a) the feed container is present (logged in, results rendered)
+    //   (b) the login wall is present (anonymous / expired cookie)
+    // The login wall flashes briefly then the DOM mutates, so we must act on
+    // whichever state appears first and not re-check later. URL-based detection
+    // still runs as a precaution.
+    if (page.url().includes(XHS.loginIndicators.redirectHostname)) {
       throw Object.assign(new Error('login expired'), { code: 'login_expired', exit: 2 });
     }
 
-    const feed = page.locator(XHS.feedContainer).first();
-    await feed.waitFor({ timeout: 10_000 }).catch(() => {
+    const settledHandle = await page
+      .waitForFunction(
+        ({ feedSel, overlaySel, loginText }) => {
+          if (document.querySelector(feedSel)) return 'feed';
+          if (document.querySelector(overlaySel)) return 'login';
+          if (document.body && document.body.innerText.includes(loginText)) return 'login';
+          return false;
+        },
+        {
+          feedSel: XHS.feedContainer,
+          overlaySel: XHS.loginIndicators.loginRequiredOverlay,
+          loginText: XHS.loginIndicators.loginRequiredText,
+        },
+        { timeout: 15_000 },
+      )
+      .catch(() => null);
+    const settled = settledHandle ? await settledHandle.jsonValue() : null;
+
+    if (settled === 'login') {
+      throw Object.assign(new Error('login expired'), { code: 'login_expired', exit: 2 });
+    }
+    if (settled !== 'feed') {
       throw Object.assign(new Error('feed container missing'), {
         code: 'selector_missing',
         exit: 4,
       });
-    });
+    }
+
+    const feed = page.locator(XHS.feedContainer).first();
 
     const cards = page.locator(XHS.noteCard);
     const count = await cards.count();
