@@ -1,0 +1,14 @@
+[Unit]
+Description=Run XHS cookie validation daily (advance warning before main scrape fails)
+Documentation=file:///home/damian/xhs-watcher/DESIGN.md
+
+[Timer]
+# Once per day at 03:00 UTC (北京 11:00) — outside the main scrape ticks
+# (00/06/12/18 UTC) to avoid lock contention with xhs-watcher.service.
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+AccuracySec=5m
+Unit=xhs-cookies-validate.service
+
+[Install]
+WantedBy=timers.target

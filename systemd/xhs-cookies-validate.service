@@ -1,0 +1,19 @@
+[Unit]
+Description=Daily check that the XHS session in state/storage.json is still valid
+Documentation=file:///home/damian/xhs-watcher/DESIGN.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/damian/xhs-watcher
+EnvironmentFile=/home/damian/xhs-watcher/.env
+# exit 0 = OK (silent). exit 2 = login_expired, send TG. exit 5 = inconclusive (silent — main scrape will retry).
+ExecStart=/bin/bash -c '\
+  out=$(/home/linuxbrew/.linuxbrew/bin/node cookie-validate.mjs 2>>/tmp/xhs-watcher.log); ec=$?; \
+  if [ $ec -eq 2 ]; then \
+    msg=$(echo "$out" | /home/linuxbrew/.linuxbrew/bin/node -e "let s=\\"\\"; process.stdin.on(\\"data\\",b=>s+=b).on(\\"end\\",()=>{try{console.log(JSON.parse(s).message)}catch{console.log(\\"login_expired\\")}})"); \
+    payload=$(/home/linuxbrew/.linuxbrew/bin/node -e "console.log(JSON.stringify({chat_id:process.env.XHS_WATCHER_TG_CHAT_ID,text:\\"⚠️ xhs-watcher cookie 校验失败\\\\n\\\\n\\"+process.argv[1]+\\"\\\\n\\\\n刷新办法：在本机写入文件，systemd 自动接管：\\\\n  echo \\\\\\"a1=...; webId=...; web_session=...\\\\\\" > ~/xhs-cookies-new.txt\\"}))" "$msg"); \
+    curl -sS "https://api.telegram.org/bot$XHS_WATCHER_TG_BOT_TOKEN/sendMessage" -H "content-type: application/json" -d "$payload" >>/tmp/xhs-watcher.log 2>&1; \
+  fi; \
+  exit 0'
+StandardOutput=append:/tmp/xhs-watcher.log
+StandardError=append:/tmp/xhs-watcher.log

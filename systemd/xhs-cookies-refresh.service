@@ -1,0 +1,27 @@
+[Unit]
+Description=Import fresh XHS cookies from ~/xhs-cookies-new.txt, then trigger a scrape
+Documentation=file:///home/damian/xhs-watcher/DESIGN.md
+# Don't fight a scrape that's already running
+After=xhs-watcher.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/damian/xhs-watcher
+EnvironmentFile=/home/damian/xhs-watcher/.env
+ExecStart=/bin/bash -c '\
+  if [ ! -s ~/xhs-cookies-new.txt ]; then \
+    echo "no cookies file or empty"; exit 0; \
+  fi; \
+  if cat ~/xhs-cookies-new.txt | /home/linuxbrew/.linuxbrew/bin/node import-cookies.mjs 2>>/tmp/xhs-watcher.log; then \
+    shred -u ~/xhs-cookies-new.txt 2>/dev/null || rm -f ~/xhs-cookies-new.txt; \
+    curl -sS "https://api.telegram.org/bot$XHS_WATCHER_TG_BOT_TOKEN/sendMessage" \
+      -H "content-type: application/json" \
+      -d "{\\"chat_id\\":\\"$XHS_WATCHER_TG_CHAT_ID\\",\\"text\\":\\"\\u2705 Cookie 已刷新。源文件已粉碎。触发一次 scrape 验证…\\"}" >/dev/null; \
+    systemctl --user start xhs-watcher.service; \
+  else \
+    curl -sS "https://api.telegram.org/bot$XHS_WATCHER_TG_BOT_TOKEN/sendMessage" \
+      -H "content-type: application/json" \
+      -d "{\\"chat_id\\":\\"$XHS_WATCHER_TG_CHAT_ID\\",\\"text\\":\\"\\u26a0\\ufe0f Cookie 导入失败。源文件保留在 ~/xhs-cookies-new.txt — 检查 /tmp/xhs-watcher.log\\"}" >/dev/null; \
+  fi'
+StandardOutput=append:/tmp/xhs-watcher.log
+StandardError=append:/tmp/xhs-watcher.log

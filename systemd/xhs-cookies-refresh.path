@@ -1,0 +1,12 @@
+[Unit]
+Description=Watch ~/xhs-cookies-new.txt for fresh XHS cookies to import
+Documentation=file:///home/damian/xhs-watcher/DESIGN.md
+
+[Path]
+# Fires whenever the file appears (created, moved in, or written to)
+PathExists=/home/damian/xhs-cookies-new.txt
+PathChanged=/home/damian/xhs-cookies-new.txt
+Unit=xhs-cookies-refresh.service
+
+[Install]
+WantedBy=default.target

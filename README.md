@@ -30,26 +30,70 @@ To monitor a different keyword, edit `watcher.yml`. See `watcher.example.yml` fo
 
 ## First-time login
 
+Pick whichever fits your host:
+
+**With a display (laptop, desktop)**:
 ```sh
 node login.mjs
 # Chromium opens → scan QR / log in → press Enter in terminal
 # state/storage.json is written (gitignored)
 ```
 
+**Headless / server (no X11)**:
+```sh
+# 1. On your normal browser, log in to xiaohongshu.com
+# 2. DevTools → Network → click any xhs request → Headers → copy `cookie:` value
+# 3. On the server:
+echo '<paste cookie header value>' | node import-cookies.mjs
+```
+
 ## Run manually
 
 ```sh
-node scrape.mjs > /tmp/scrape.json    # one-shot scrape
-cat /tmp/scrape.json                  # inspect raw JSON
+node scrape.mjs > /tmp/scrape.json                      # one-shot multi-keyword scrape
+cat /tmp/scrape.json | node llm-verdict.mjs > /tmp/b.json  # LLM-classified broadcast
+cat /tmp/b.json | node notify.mjs --terminal --tg       # render + dispatch to TG
+cat /tmp/b.json | node notify.mjs --update-verdicts     # persist verdicts to seen.json
 ```
 
-## Run on schedule (Claude Code)
+## Run on schedule (Linux server, systemd)
+
+The repo ships systemd `--user` unit files (under `systemd/` if extracted; or
+copy the four shown below to `~/.config/systemd/user/`). Then:
+
+```sh
+systemctl --user daemon-reload
+systemctl --user enable --now xhs-watcher.timer            # main scrape, every 6h
+systemctl --user enable --now xhs-cookies-validate.timer   # daily liveness check
+systemctl --user enable --now xhs-cookies-refresh.path     # watcher for cookie-refresh
+systemctl --user list-timers 'xhs-*'                       # confirm scheduling
+```
+
+**Refreshing cookies later** (when XHS session expires — usually weeks):
+
+The cookie-validate timer fires daily; if your session has expired, you'll get
+a TG message with the exact command to run. Refresh by writing the new cookie
+header to a watched path — systemd auto-imports, deletes the source, and
+triggers a verification scrape:
+
+```sh
+echo '<paste fresh cookie header>' > ~/xhs-cookies-new.txt
+# That's it. Within 1-2 seconds:
+#   - xhs-cookies-refresh.path triggers
+#   - xhs-cookies-refresh.service runs import-cookies.mjs
+#   - source file is shredded
+#   - TG channel receives "✅ Cookie 已刷新"
+#   - xhs-watcher.service is triggered to verify
+```
+
+## Run on schedule (Claude Code, /loop)
 
 ```
 /loop 6h <paste LOOP_PROMPT.md body>
 ```
 
 The LLM applies the signal filter and dispatches to both terminal and Telegram.
+Useful for interactive sessions; for durable unattended runs prefer systemd.
 
 ## Switch to a different keyword
 

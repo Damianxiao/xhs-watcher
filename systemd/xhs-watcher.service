@@ -1,0 +1,14 @@
+[Unit]
+Description=xhs-watcher — XHS keyword scrape → LLM verdict → terminal+TG
+Documentation=file:///home/damian/xhs-watcher/DESIGN.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/damian/xhs-watcher
+# Pipeline: scrape → LLM verdict → notify (terminal + TG, gated by notify_on_empty)
+ExecStart=/bin/bash -c '/home/linuxbrew/.linuxbrew/bin/node scrape.mjs > /tmp/xhs-scrape.json 2>>/tmp/xhs-watcher.log; ec=$?; if [ $ec -ne 0 ] && ! grep -q already_running /tmp/xhs-scrape.json 2>/dev/null; then cat /tmp/xhs-scrape.json | /home/linuxbrew/.linuxbrew/bin/node notify.mjs --terminal --tg >>/tmp/xhs-watcher.log 2>&1; exit 0; fi; cat /tmp/xhs-scrape.json | /home/linuxbrew/.linuxbrew/bin/node llm-verdict.mjs > /tmp/xhs-broadcast.json 2>>/tmp/xhs-watcher.log; cat /tmp/xhs-broadcast.json | /home/linuxbrew/.linuxbrew/bin/node notify.mjs --terminal --tg >>/tmp/xhs-watcher.log 2>&1; cat /tmp/xhs-broadcast.json | /home/linuxbrew/.linuxbrew/bin/node notify.mjs --update-verdicts >>/tmp/xhs-watcher.log 2>&1'
+StandardOutput=append:/tmp/xhs-watcher.log
+StandardError=append:/tmp/xhs-watcher.log
+
+[Install]
+WantedBy=default.target
