@@ -1,10 +1,14 @@
 [Unit]
-Description=Fire xhs-watcher every 6 hours
+Description=Fire xhs-watcher every hour
 Documentation=file:///home/damian/xhs-watcher/DESIGN.md
 
 [Timer]
-# Every 6 hours on UTC clock — 00:00, 06:00, 12:00, 18:00.
-OnCalendar=*-*-* 00,06,12,18:00:00
+# Every hour on the :00 mark (UTC). Detection lag = 0-60min, avg 30min.
+# Cookies + dedup via state/seen.json mean most runs are cheap no-ops:
+# scrape iterates 22×3 cards per run but only fetches detail pages for
+# unseen note_ids. XHS rate-limit risk at 1h is acceptable; below 15min
+# starts to trip risk control.
+OnCalendar=*-*-* *:00:00
 Persistent=true
 AccuracySec=1m
 Unit=xhs-watcher.service
