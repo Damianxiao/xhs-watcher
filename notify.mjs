@@ -49,6 +49,15 @@ async function main() {
   }
 
   if (flags.tg && cfg.notify?.telegram?.enabled) {
+    // Skip TG broadcast when stats.new is 0 and notify_on_empty is false
+    // (or unset). Avoids spamming the channel with "窗口无新帖" every iteration
+    // in steady state. Error broadcasts (broadcast.error truthy) always go
+    // through so the user knows about login_expired / network / etc.
+    const isEmpty = !broadcast.error && broadcast.stats?.new === 0;
+    const notifyOnEmpty = cfg.notify.telegram.notify_on_empty ?? false;
+    if (isEmpty && !notifyOnEmpty) {
+      // intentional no-op for TG; terminal already rendered the empty status
+    } else {
     const msgs = renderTelegramMessages(broadcast);
     if (flags.dryRun) {
       console.log('--- TG dry-run, messages would be sent: ---');
@@ -68,6 +77,7 @@ async function main() {
           tgError = failed.map((f) => f.error).join('; ');
         }
       }
+    }
     }
   }
 
