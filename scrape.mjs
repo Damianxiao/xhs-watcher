@@ -82,9 +82,14 @@ async function main() {
     };
 
     // Navigate to a keyword URL and wait for the page to settle into either
-    // `feed` or `login`. Returns the resolved state. Caller decides what to do.
+    // `feed` or `login`. Returns the resolved state, or `'nav_failed'` if the
+    // navigation itself errored (network timeout, DNS, TLS, etc.).
     async function navAndSettle(url) {
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      try {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      } catch {
+        return 'nav_failed';
+      }
       if (page.url().includes(XHS.loginIndicators.redirectHostname)) return 'login';
       const handle = await page
         .waitForFunction(evalState, waitArgs, { timeout: 15_000 })
@@ -103,12 +108,22 @@ async function main() {
       const url = cfg.source.search_url.replace('{keyword}', encodeURIComponent(kw));
       let settled = await navAndSettle(url);
 
-      // XHS occasionally serves a stripped page that has neither the feed
-      // container nor the login wall (probably risk-control). Single retry
-      // after a short wait clears the vast majority of cases.
+      // XHS occasionally either serves a stripped page (no feed, no login
+      // wall) or times out the navigation itself. One retry with a 5s gap
+      // clears the vast majority of both cases. After the retry, give up on
+      // this keyword and continue — partial results are fine.
       if (settled !== 'feed' && settled !== 'login') {
         await page.waitForTimeout(5000);
         settled = await navAndSettle(url);
+      }
+
+      // If still not feed/login after retry, surface as network if the goto
+      // itself failed, or selector_missing if nav succeeded but DOM is off.
+      if (settled === 'nav_failed') {
+        throw Object.assign(new Error(`navigation timeout/error for keyword "${kw}"`), {
+          code: 'network',
+          exit: 5,
+        });
       }
 
       if (settled === 'login') {
