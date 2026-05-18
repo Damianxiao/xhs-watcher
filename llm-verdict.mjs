@@ -113,8 +113,12 @@ async function main() {
       note_id: r.post.note_id,
       verdict: r.verdict,
       title: r.post.title,
+      verdict_reason: r.verdict_reason,
       author: '@' + (r.post.author?.name ?? 'unknown'),
       published_relative: r.post.published_relative,
+      metrics: {
+        likes: r.post.metrics?.likes ?? null,
+      },
       url: r.post.url,
     }));
 

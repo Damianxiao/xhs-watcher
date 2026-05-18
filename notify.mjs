@@ -55,11 +55,14 @@ async function main() {
     // the user knows about login_expired / network / etc.
     //
     //   (a) stats.new === 0 — scrape returned no new posts at all
-    //   (b) cards.length === 0 — new posts existed but ALL classified as
-    //       known/ad/noise, so there's nothing actionable to push
+    //   (b) cards + known items both 0 — only ad/noise produced, nothing
+    //       worth surfacing. (`known` items DO get a compact TG render and
+    //       therefore count as actionable.)
     const cardCount = (broadcast.cards ?? []).length;
+    const knownCount = (broadcast.filtered_summary ?? []).filter((f) => f.verdict === 'known').length;
+    const actionable = cardCount + knownCount;
     const isNothingActionable = !broadcast.error &&
-      (broadcast.stats?.new === 0 || cardCount === 0);
+      (broadcast.stats?.new === 0 || actionable === 0);
     const notifyOnEmpty = cfg.notify.telegram.notify_on_empty ?? false;
     if (isNothingActionable && !notifyOnEmpty) {
       // intentional no-op for TG; terminal already rendered the broadcast

@@ -7,11 +7,14 @@ const fixture = JSON.parse(
   readFileSync(new URL('./fixtures/broadcast.json', import.meta.url), 'utf8'),
 );
 
-test('produces one message per signal card plus a footer', () => {
+test('produces signal cards + known compacts + footer', () => {
+  // Fixture: 1 signal card (no original_content), 1 known item, 1 ad, 1 noise.
+  // Expected output: [signal_summary, known_compact, footer] = 3 messages.
   const msgs = renderTelegramMessages(fixture);
-  assert.equal(msgs.length, 2);
+  assert.equal(msgs.length, 3);
   assert.match(msgs[0], /Skill 化 git worktree/);
-  assert.match(msgs[1], /xhs-watcher/);
+  assert.match(msgs[1], /🔘 已知 — 又一篇 TDD 入门/);
+  assert.match(msgs[2], /xhs-watcher/); // footer
 });
 
 test('signal message contains HTML markup', () => {
